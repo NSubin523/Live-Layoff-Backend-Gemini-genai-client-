@@ -1,0 +1,10 @@
+# Local Environment Secrets
+.env
+
+# Firebase Connection Credentials
+config/firebase-credentials.json
+
+# Python Virtual Environments
+.venv/
+__pycache__/
+*.pyc
