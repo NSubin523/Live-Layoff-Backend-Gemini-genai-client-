@@ -16,30 +16,20 @@ def send_push_notification(payload: PushNotificationRequestDto):
         # All values inside FCM data payload MUST be strings for Android parsing
         data_payload = {
             "company_id": str(comp.id) if hasattr(comp, "id") and comp.id else "",
-            "company_name": comp.company_name,
-            "status": comp.status,
+            "company_name": str(comp.company_name),
+            "status": str(comp.status),
             "impact_count": str(comp.impact_count) if comp.impact_count is not None else "0",
-            "logo_url": comp.logo_url or "",
-            "location": comp.location or "",
-            "trend_direction": getattr(comp, "trend_direction", "stable")
+            "logo_url": str(comp.logo_url or ""),
+            "location": str(comp.location or ""),
+            "trend_direction": str(getattr(comp, "trend_direction", "stable")),
+            "news_url": "https://google.com"
         }
 
-        # Title & Body formatted for the notification tray
-        notification_title = f"{comp.company_name} Layoff Alert"
-        notification_body = f"{comp.company_name} announced layoffs ({comp.status}). Impact: {comp.impact_count or 'N/A'}"
-
+        # PURE DATA MESSAGE (No notification objects anywhere)
         message = messaging.Message(
             data=data_payload,
-            notification=messaging.Notification(
-                title=notification_title,
-                body=notification_body,
-                image=comp.logo_url if comp.logo_url else None
-            ),
             android=messaging.AndroidConfig(
-                priority="high",
-                notification=messaging.AndroidNotification(
-                    click_action="OPEN_NEWS_DEEPLINK"
-                )
+                priority="high"  # High priority wakes device up from Doze mode
             ),
             token=payload.target_token if payload.target_token else None,
             topic=payload.topic if not payload.target_token else None
