@@ -3,7 +3,7 @@ from app.features.telemetry.data.dto.telemetry_event_dto import TelemetryRequest
 from app.features.telemetry.service.telemetry_service import TelemetryService
 from app.features.telemetry.service.telemetry_service_dependency import get_telemetry_service
 
-router = APIRouter(prefix="/telemetry", tags=["Telemetry"])
+router = APIRouter(prefix="/api/v1/telemetry", tags=["Telemetry"])
 
 @router.post("/batch", status_code=status.HTTP_201_CREATED, response_class=Response)
 async def log_telemetry_batch(
