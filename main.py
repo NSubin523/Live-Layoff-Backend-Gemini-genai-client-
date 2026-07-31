@@ -6,6 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from app.services.firebase.firebase_config import initialize_firebase
 from app.features.feed.api.feed_routes import router as feed_router
 from app.features.pushNotifications.api.notification_routes import router as notification_router
+from app.features.telemetry.api.telemetry_route import router as telemetry_router
 
 # 1. Load local environment configurations from your .env file
 load_dotenv()
@@ -47,6 +48,8 @@ app.add_middleware(
 app.include_router(feed_router)
 
 app.include_router(notification_router)
+
+app.include_router(telemetry_router)
 
 
 @app.get("/health")
