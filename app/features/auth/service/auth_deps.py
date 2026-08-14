@@ -1,6 +1,9 @@
 from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 from firebase_admin import auth
+import logging
+
+logger = logging.getLogger(__name__)
 
 # auto_error=False ensures requests without a Bearer header won't fail automatically
 # (This allows guest / "Non-User" calls to proceed smoothly)
@@ -16,6 +19,7 @@ async def get_current_user_id(
     - If token is invalid or expired -> raises 401 Unauthorized
     """
     if not credentials or not credentials.credentials:
+        logger.error("[AUTH DEPS] No Authorization header detected -> Defaulting to Non-User")
         return "Non-User"
 
     token = credentials.credentials
