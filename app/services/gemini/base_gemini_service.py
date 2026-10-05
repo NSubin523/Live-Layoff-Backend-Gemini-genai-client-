@@ -1,4 +1,4 @@
-from typing import TypeVar, Type
+from typing import Iterator, TypeVar, Type
 
 from google import genai
 from google.genai import types
@@ -12,6 +12,27 @@ class BaseGeminiService:
     def __init__(self, model_name: str = 'gemini-2.5-flash'):
         self.client = genai.Client()
         self.model_name = model_name
+
+    def stream_text(
+            self,
+            prompt: str,
+            system_instruction: str = base_system_instruction
+    ) -> Iterator[str]:
+        """Yield text chunks from Gemini's synchronous streaming API."""
+        has_text = False
+        for response in self.client.models.generate_content_stream(
+                model=self.model_name,
+                contents=prompt,
+                config=types.GenerateContentConfig(
+                    system_instruction=system_instruction,
+                ),
+        ):
+            text = response.text
+            if text:
+                has_text = True
+                yield text
+        if not has_text:
+            raise ValueError("The Gemini API returned an empty generation response.")
 
     def generate_structured_output(
             self,
