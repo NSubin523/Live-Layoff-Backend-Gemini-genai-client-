@@ -1,0 +1,6 @@
+User question: {message}
+
+Layoff records:
+{records}
+
+Answer:
