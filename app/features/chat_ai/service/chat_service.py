@@ -4,7 +4,9 @@ from datetime import datetime, timedelta, timezone
 from typing import Any, Iterator, List, Optional
 
 from app.features.chat_ai.tools.classifier.greeting_classifier import is_greeting
-from app.features.chat_ai.tools.extractor.intent_extractor import extract_intent
+from app.features.chat_ai.tools.extractor.intent_extractor import (
+    CONTEXT_MESSAGE_LIMIT, extract_intent,
+)
 from app.features.chat_ai.tools.loader.prompt_loader import prompt_loader
 from app.features.chat_ai.data.dto.chat_dto import (
     ChatIntent,
@@ -54,11 +56,17 @@ class ChatService:
     def chat(self, user_id: str, message: str) -> Iterator[ChatStreamEvent]:
         """Streams the agent turn. message is already validated + normalized
         by ChatRequest before it gets here."""
-        self.history.save(
-            CreateChatMessage(user_id=user_id, role=ChatRole.USER, text=message)
-        )
         try:
-            if is_greeting(message):
+            greeting = is_greeting(message)
+            # Read before saving so the current message appears exactly once
+            # in the classifier input. The repository returns oldest-first.
+            context = [] if greeting else self.history.get_history(
+                user_id, limit=CONTEXT_MESSAGE_LIMIT
+            ).messages
+            self.history.save(
+                CreateChatMessage(user_id=user_id, role=ChatRole.USER, text=message)
+            )
+            if greeting:
                 yield ChatStreamEvent(
                     "intent", {"intent": ChatIntentType.GREETING.value}
                 )
@@ -66,19 +74,31 @@ class ChatService:
                     user_id, ChatIntentType.GREETING, "greeting"
                 )
             else:
-                intent = extract_intent(message)
+                intent = extract_intent(message, history=context)
                 yield ChatStreamEvent("intent", {"intent": intent.intent.value})
 
-                if intent.intent == ChatIntentType.OUT_OF_SCOPE:
+                if intent.intent == ChatIntentType.GREETING:
+                    yield from self._canned(user_id, intent.intent, "greeting")
+                elif intent.intent == ChatIntentType.CAPABILITIES:
+                    yield from self._canned(user_id, intent.intent, "capabilities")
+                elif intent.intent in (
+                    ChatIntentType.CLARIFICATION, ChatIntentType.CONVERSATION
+                ):
+                    text = (intent.response_text or "").strip()
+                    if not text:
+                        text = prompt_loader.get_loader("clarification")
+                    yield from self._reply(user_id, intent.intent, text)
+                elif intent.intent == ChatIntentType.OUT_OF_SCOPE:
                     yield from self._canned(
                         user_id, ChatIntentType.OUT_OF_SCOPE, "out_of_scope"
                     )
                 else:
-                    yield from self._layoff_query(user_id, message, intent)
+                    yield from self._layoff_query(
+                        user_id, intent.resolved_query or message, intent
+                    )
         except Exception:
             logger.exception("Chat response failed while streaming")
-            # Model/retrieval failure mid-stream: user message is already
-            # saved; the failed agent turn is not persisted.
+            # The failed agent turn is not persisted.
             yield ChatStreamEvent(
                 "error",
                 {"message": "Something went wrong on our end. Please try again."},
@@ -92,6 +112,11 @@ class ChatService:
     ) -> Iterator[ChatStreamEvent]:
         """Zero-model branch: canned text, no cards."""
         text = prompt_loader.get_loader(prompt_key)
+        yield from self._reply(user_id, intent_type, text)
+
+    def _reply(
+        self, user_id: str, intent_type: ChatIntentType, text: str
+    ) -> Iterator[ChatStreamEvent]:
         yield ChatStreamEvent("text", {"chunk": text})
         self.history.save(
             CreateChatMessage(

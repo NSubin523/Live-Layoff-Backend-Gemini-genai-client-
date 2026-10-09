@@ -28,5 +28,8 @@ class ChatRole(str, Enum):
 
 class ChatIntentType(str, Enum):
     GREETING = "greeting"
+    CAPABILITIES = "capabilities"
+    CLARIFICATION = "clarification"
+    CONVERSATION = "conversation"
     LAYOFF_QUERY = "layoff_query"
     OUT_OF_SCOPE = "out_of_scope"

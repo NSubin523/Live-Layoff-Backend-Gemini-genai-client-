@@ -30,6 +30,14 @@ class ChatHistoryResponse(BaseModel):
 
 class ChatIntent(BaseModel):
     intent: ChatIntentType
+    resolved_query: Optional[str] = Field(
+        default=None, max_length=1000,
+        description="Standalone layoff question resolved from the latest message and relevant conversation context. No factual answers.",
+    )
+    response_text: Optional[str] = Field(
+        default=None, max_length=500,
+        description="Short clarification question or conversational acknowledgment. Never include layoff facts here.",
+    )
     companies: List[str] = Field(
         default_factory=list,
         description="Company names mentioned, e.g. ['Microsoft']",
