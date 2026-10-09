@@ -17,6 +17,7 @@ from app.services.gemini.base_gemini_service import BaseGeminiService
 class ChatStreamingTests(unittest.TestCase):
     def setUp(self):
         self.history = Mock()
+        self.history.get_history.return_value.messages = []
         self.lookup = Mock()
         self.gemini = Mock()
         self.service = ChatService(self.history, self.lookup, self.gemini)
