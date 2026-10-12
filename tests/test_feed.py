@@ -101,20 +101,10 @@ class FeedRepositoryTests(unittest.TestCase):
         self.assertNotIn('impact_count', self.db.rows['layoffs']['other'])
         self.assertNotIn('impact_count', self.db.rows['layoffs']['old'])
 
-    def test_feed_returns_newest_first_respects_limit_and_adds_document_ids(self):
-        self.db.rows['layoffs'] = {str(i): dict(company_name=f'Company {i}', reported_at=NOW - timedelta(days=i)) for i in range(4)}
-        result = self.repo.generate_data_for_layoff_feed(limit=2)
-        self.assertEqual([r['id'] for r in result], ['0', '1'])
-        self.assertEqual(result[0]['company_name'], 'Company 0')
-        self.assertNotIn('id', self.db.rows['layoffs']['0'])
 
-    def test_empty_feed_returns_empty_list(self):
-        self.assertEqual(self.repo.generate_data_for_layoff_feed(), [])
 
     def test_uninitialized_database_reports_errors(self):
         with patch('app.features.feed.data.repository.feed_repository.firebase_config.db', None):
-            with self.assertRaisesRegex(RuntimeError, 'Database connection uninitialized'):
-                self.repo.generate_data_for_layoff_feed()
             with self.assertRaisesRegex(RuntimeError, 'data write transaction failed'):
                 self.repo.check_and_save_layoff(extraction())
 

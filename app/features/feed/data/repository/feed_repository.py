@@ -70,24 +70,3 @@ class FeedRepository:
 
         except Exception as error:
             raise RuntimeError(f"FeedRepository data write transaction failed: {str(error)}")
-
-    def generate_data_for_layoff_feed(self, limit: int = 25) -> List[Dict[str, Any]]:
-        db = firebase_config.db
-        if db is None:
-            raise RuntimeError("Database connection uninitialized")
-
-        docs = (db.collection(self.collection_name)
-               .order_by("reported_at", direction="DESCENDING")
-               .limit(limit)
-               .stream())
-
-        feed = []
-        for doc in docs:
-            doc_data = doc.to_dict()
-            doc_data["id"] = doc.id
-            feed.append(doc_data)
-
-        if not feed:
-            return [] #Firestore collection is currently empty
-
-        return feed
