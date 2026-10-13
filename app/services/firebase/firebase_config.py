@@ -23,21 +23,22 @@ def initialize_firebase():
     # Locate credential target path from environment configuration
     cred_path = os.getenv("GOOGLE_APPLICATION_CREDENTIALS")
 
-    if not cred_path:
-        raise RuntimeError(
-            "Initialization Failed: GOOGLE_APPLICATION_CREDENTIALS is not specified in the environment variables."
-        )
-
     # Verify the target credentials file physically exists on storage
-    if not Path(cred_path).exists():
+    if cred_path and not Path(cred_path).exists():
         raise FileNotFoundError(
             f"Initialization Failed: Credential token file not located at position: {cred_path}"
         )
 
     try:
         # Load the authentication token and initialize administrative context
-        cred = credentials.Certificate(cred_path)
-        firebase_admin.initialize_app(cred)
+        if cred_path:
+            cred = credentials.Certificate(cred_path)
+            firebase_admin.initialize_app(cred)
+        else:
+            # Cloud Run obtains credentials from its attached service account.
+            project_id = os.getenv("FIREBASE_PROJECT_ID")
+            options = {"projectId": project_id} if project_id else None
+            firebase_admin.initialize_app(options=options)
 
         # Instantiate the database client connection
         db = firestore.client()

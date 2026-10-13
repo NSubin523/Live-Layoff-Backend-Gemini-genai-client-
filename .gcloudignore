@@ -1,0 +1,13 @@
+.gcloudignore
+.git
+.gitignore
+#!include:.gitignore
+.idea
+.venv
+venv
+**/__pycache__
+**/*.pyc
+.env
+.env.*
+**/*credentials*.json
+**/*service-account*.json

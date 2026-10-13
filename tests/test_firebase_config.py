@@ -40,11 +40,17 @@ class FirebaseInitializationTests(unittest.TestCase):
         self.client.assert_called_once()
         self.initialize.assert_not_called()
 
-    def test_missing_credential_configuration_fails_before_initialization(self):
+    def test_missing_credential_file_setting_uses_default_credentials(self):
         self.getenv.return_value = None
-        with self.assertRaisesRegex(RuntimeError, 'GOOGLE_APPLICATION_CREDENTIALS'):
-            firebase_config.initialize_firebase()
-        self.initialize.assert_not_called()
+        self.assertIs(firebase_config.initialize_firebase(), self.client.return_value)
+        self.initialize.assert_called_once_with(options=None)
+        self.certificate.assert_not_called()
+
+    def test_default_credentials_use_explicit_firebase_project(self):
+        self.getenv.side_effect = lambda key: {'FIREBASE_PROJECT_ID': 'test-firebase-dev'}.get(key)
+        firebase_config.initialize_firebase()
+        self.initialize.assert_called_once_with(options={'projectId': 'test-firebase-dev'})
+        self.certificate.assert_not_called()
 
     def test_missing_credential_file_fails_before_initialization(self):
         self.exists.return_value = False

@@ -5,6 +5,20 @@ from typing import Optional, List
 from pydantic import BaseModel, Field
 
 
+class ChatRole(str, Enum):
+    USER = "user"
+    AGENT = "agent"
+
+
+class ChatIntentType(str, Enum):
+    GREETING = "greeting"
+    CAPABILITIES = "capabilities"
+    CLARIFICATION = "clarification"
+    CONVERSATION = "conversation"
+    LAYOFF_QUERY = "layoff_query"
+    OUT_OF_SCOPE = "out_of_scope"
+
+
 class ChatMessage(BaseModel):
     """
     Firestore document: chat_history/{user_id}/messages/{message_id}
@@ -21,15 +35,3 @@ class ChatMessage(BaseModel):
     card_ids: List[str] = Field(default_factory=list)
     created_at: datetime
     expires_at: datetime
-
-class ChatRole(str, Enum):
-    USER = "user"
-    AGENT = "agent"
-
-class ChatIntentType(str, Enum):
-    GREETING = "greeting"
-    CAPABILITIES = "capabilities"
-    CLARIFICATION = "clarification"
-    CONVERSATION = "conversation"
-    LAYOFF_QUERY = "layoff_query"
-    OUT_OF_SCOPE = "out_of_scope"

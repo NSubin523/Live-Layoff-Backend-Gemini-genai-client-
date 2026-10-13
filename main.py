@@ -1,4 +1,5 @@
 from contextlib import asynccontextmanager
+import os
 from fastapi import FastAPI
 from dotenv import load_dotenv
 from fastapi.middleware.cors import CORSMiddleware
@@ -45,7 +46,8 @@ app.add_middleware(
 )
 
 
-app.include_router(notification_router)
+if os.getenv("ENABLE_NOTIFICATION_SEND", "true").lower() == "true":
+    app.include_router(notification_router)
 
 
 app.include_router(chat_router)

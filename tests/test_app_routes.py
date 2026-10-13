@@ -1,4 +1,5 @@
 import os
+import runpy
 import unittest
 from unittest.mock import patch
 
@@ -9,6 +10,14 @@ from fastapi.testclient import TestClient
 
 
 class AppRouteMigrationTests(unittest.TestCase):
+    def test_cloud_can_disable_notification_delivery(self):
+        with patch.dict(os.environ, {'ENABLE_NOTIFICATION_SEND': 'false'}), patch('dotenv.load_dotenv'):
+            cloud_app = runpy.run_path('main.py')['app']
+        response = TestClient(cloud_app).post('/api/v1/notifications/send', json={})
+        self.assertEqual(response.status_code, 404)
+        self.assertEqual(TestClient(cloud_app).get('/health').status_code, 200)
+        self.assertIn('/api/v1/chat', {route.path for route in cloud_app.routes})
+
     def test_feed_is_retired_but_python_features_remain_registered(self):
         paths = {route.path for route in app.routes}
         self.assertNotIn('/api/v1/feed', paths)
