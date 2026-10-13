@@ -16,15 +16,15 @@ class AppRouteMigrationTests(unittest.TestCase):
         response = TestClient(cloud_app).post('/api/v1/notifications/send', json={})
         self.assertEqual(response.status_code, 404)
         self.assertEqual(TestClient(cloud_app).get('/health').status_code, 200)
-        self.assertIn('/api/v1/chat', {route.path for route in cloud_app.routes})
+        self.assertIn('/api/v1/chat', cloud_app.openapi()['paths'])
 
     def test_feed_is_retired_but_python_features_remain_registered(self):
-        paths = {route.path for route in app.routes}
+        paths = set(app.openapi()['paths'])
         self.assertNotIn('/api/v1/feed', paths)
         self.assertTrue({'/api/v1/chat', '/api/v1/chat/history', '/api/v1/notifications/send', '/health'} <= paths)
         self.assertEqual(TestClient(app).get('/api/v1/feed').status_code, 404)
 
     def test_telemetry_is_retired(self):
-        paths = {route.path for route in app.routes}
+        paths = set(app.openapi()['paths'])
         self.assertNotIn('/api/v1/telemetry/batch', paths)
         self.assertEqual(TestClient(app).post('/api/v1/telemetry/batch', json={'events': []}).status_code, 404)

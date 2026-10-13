@@ -53,7 +53,7 @@ jobs:
       - name: Verify container imports and disabled notification route
         run: >-
           docker run --rm --entrypoint python layoff-ci:test -c
-          "from main import app; paths = {route.path for route in app.routes};
+          "from main import app; paths = set(app.openapi()['paths']);
           assert '/health' in paths; assert '/api/v1/chat' in paths;
           assert '/api/v1/notifications/send' not in paths"
       - name: Scan runtime dependencies and operating system
