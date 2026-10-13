@@ -8,7 +8,18 @@ Public `/health` returns 200, notifications return 404, and chat/history require
 Firebase authentication. Logged-in Android chat generation still needs testing.
 The service scales from zero to one instance and uses request-based CPU allocation.
 
-Pushing to GitHub does not automatically deploy yet. To deploy current local code:
+GitHub is connected through Cloud Build connection `layoff-dev-github` in
+`us-east4`. Trigger `layoff-chat-dev-main` watches exactly `^main$` in
+`NSubin523/Live-Layoff-Backend-Gemini-genai-client-`.
+
+Work goes into `develop`; pushes there do not deploy. Merge or push to `main` to
+build the Dockerfile and deploy Python to the development URL automatically.
+The pipeline preserves existing runtime settings and secrets, tags the image
+with the Git commit SHA, and checks public `/health` after deployment. Production
+is not configured. Check status under Google Cloud Console → Cloud Build →
+Triggers / History in `us-east4`.
+
+To deliberately deploy current local code manually:
 
 ```bash
 bash scripts/deploy-dev.sh
@@ -18,8 +29,8 @@ The script preserves existing secrets and runtime configuration. If the CLI is
 not on PATH, use `GCLOUD_BIN=/tmp/layoff-cloud-tools/google-cloud-sdk/bin/gcloud`
 and `CLOUDSDK_CONFIG=/tmp/layoff-cloud-tools/config` from this chat, or install and
 authenticate the official Google Cloud CLI. Temporary files may be removed by the
-operating system. GitHub continuous deployment can be configured in the Cloud Run
-service's Source tab after the verified startup fix is pushed.
+operating system. Manual deployment uses the local checkout regardless of its
+branch, so it bypasses the usual `main` deployment workflow.
 
 The Dockerfile runs Uvicorn on `0.0.0.0:$PORT` as a non-root user. Docker and
 Google Cloud source upload ignore files exclude local secrets and virtualenvs.
