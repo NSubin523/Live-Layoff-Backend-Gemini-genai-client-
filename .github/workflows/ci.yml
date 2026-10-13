@@ -1,0 +1,148 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [develop, main]
+  push:
+    branches: [develop, main]
+  workflow_dispatch:
+  schedule:
+    - cron: '23 9 * * 1'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  tests:
+    name: Unit tests (Python ${{ matrix.python-version }})
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    strategy:
+      fail-fast: false
+      matrix:
+        python-version: ['3.12', '3.14']
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97 # v7
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: pip
+      - name: Install application and test dependencies
+        run: python -m pip install -r requirements.txt -r requirements-test.txt
+      - name: Check dependency compatibility
+        run: python -m pip check
+      - name: Run unit tests
+        run: python -B -m unittest discover -s tests -v
+
+  container:
+    name: Container and vulnerabilities
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Build runtime container
+        run: docker build --pull --tag layoff-ci:test .
+      - name: Verify container imports and disabled notification route
+        run: >-
+          docker run --rm --entrypoint python layoff-ci:test -c
+          "from main import app; paths = {route.path for route in app.routes};
+          assert '/health' in paths; assert '/api/v1/chat' in paths;
+          assert '/api/v1/notifications/send' not in paths"
+      - name: Scan runtime dependencies and operating system
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          image-ref: layoff-ci:test
+          scanners: vuln
+          format: json
+          output: trivy-report.json
+          exit-code: '0'
+      - name: Save vulnerability report
+        if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7
+        with:
+          name: vulnerability-report
+          path: trivy-report.json
+          if-no-files-found: warn
+          retention-days: 7
+      - name: Block fixable high and critical vulnerabilities
+        uses: aquasecurity/trivy-action@ed142fd0673e97e23eac54620cfb913e5ce36c25 # v0.36.0
+        with:
+          version: v0.75.0
+          skip-setup-trivy: true
+          image-ref: layoff-ci:test
+          scanners: vuln
+          severity: HIGH,CRITICAL
+          ignore-unfixed: true
+          format: table
+          exit-code: '1'
+
+  secrets:
+    name: Secret scan
+    runs-on: ubuntu-24.04
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - name: Scan committed history for credentials
+        uses: gitleaks/gitleaks-action@e0c47f4f8be36e29cdc102c57e68cb5cbf0e8d1e # v3
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITLEAKS_ENABLE_COMMENTS: 'false'
+          GITLEAKS_ENABLE_UPLOAD_ARTIFACT: 'false'
+
+  codeql:
+    name: CodeQL security
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    permissions:
+      contents: read
+      actions: read
+      security-events: write
+    steps:
+      - uses: actions/checkout@d23441a48e516b6c34aea4fa41551a30e30af803 # v6
+        with:
+          persist-credentials: false
+      - name: Initialize security analysis
+        uses: github/codeql-action/init@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          languages: python
+          build-mode: none
+          queries: security-extended
+      - name: Analyze and publish security findings
+        uses: github/codeql-action/analyze@24c54180a607b1449ed407dd24f251e4e9147c8d # v4
+        with:
+          output: codeql-results
+      - name: Verify security gate parser
+        run: python3 -m unittest discover -s scripts/tests -v
+      - name: Block high and critical CodeQL findings
+        run: python3 scripts/check_sarif.py codeql-results
+
+  gate:
+    name: CI gate
+    if: always()
+    needs: [tests, container, secrets, codeql]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - name: Require every check to succeed
+        env:
+          RESULTS: ${{ join(needs.*.result, ',') }}
+        run: |
+          python3 - <<'PYCODE'
+          import os
+          results = os.environ['RESULTS'].split(',')
+          if len(results) != 4 or any(result != 'success' for result in results):
+              raise SystemExit('CI gate failed: ' + ', '.join(results))
+          print('All required checks passed')
+          PYCODE
